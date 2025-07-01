@@ -1,0 +1,42 @@
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/fastapi-login-system', '.']
+  
+  # Push the image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/fastapi-login-system']
+  
+  # Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'fastapi-login-system'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/fastapi-login-system'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--set-env-vars'
+      - 'JWT_SECRET=${_JWT_SECRET}'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--max-instances'
+      - '10'
+      - '--service-account'
+      - 'fastapi-service@$PROJECT_ID.iam.gserviceaccount.com'
+
+# Store images in Google Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/fastapi-login-system'
+
+# Substitution variables (set these when triggering the build)
+substitutions:
+  _JWT_SECRET: 'your-super-secret-jwt-key-change-this' 
