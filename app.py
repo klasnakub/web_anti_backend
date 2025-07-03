@@ -1,17 +1,20 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
 from google.cloud import bigquery
-from google.oauth2 import service_account
 import bcrypt
 import jwt
-import os
 from datetime import datetime, timedelta
 from typing import Optional
 import json
 from dotenv import load_dotenv
 import uuid
+
+from config import *
+from model.login import LoginRequest, LoginResponse
+from model.user import User
+from model.league import LeagueRequest, LeagueResponse
+from repository.bigquery import BigQueryClient
 
 # Load environment variables
 load_dotenv()
@@ -30,73 +33,9 @@ app.add_middleware(
 # Security
 security = HTTPBearer()
 
-# Configuration
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
-
-# BigQuery Configuration
-PROJECT_ID = "practise-bi"
-DATASET_NAME = "user"
-TABLE_NAME = "users"
-SERVICE_ACCOUNT_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "practise-bi-88d1549575a4.json")
-
-# Pydantic models
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str
-    user_id: str
-    username: str
-    email: str
-    role: str
-
-class User(BaseModel):
-    user_id: str
-    username: str
-    email: str
-    role: str
-    is_active: bool
-    created_at: datetime
-    last_login: Optional[datetime] = None
-
-class LeagueRequest(BaseModel):
-    league_name: str
-    country: str
-    season: str
-    status: str
-
-class LeagueResponse(BaseModel):
-    league_id: str
-    league_name: str
-    country: str
-    season: str
-    status: str
-    created_at: datetime
-    updated_at: datetime
-
-# BigQuery client initialization
-def get_bigquery_client():
-    """Initialize BigQuery client with service account credentials"""
-    try:
-        # Try to use service account file if available
-        if os.path.exists(SERVICE_ACCOUNT_PATH):
-            credentials = service_account.Credentials.from_service_account_file(
-                SERVICE_ACCOUNT_PATH,
-                scopes=["https://www.googleapis.com/auth/cloud-platform"]
-            )
-            return bigquery.Client(credentials=credentials, project=PROJECT_ID)
-        else:
-            # Use default credentials (for Cloud Run)
-            return bigquery.Client(project=PROJECT_ID)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to initialize BigQuery client: {str(e)}"
-        )
+# Init bigquery client
+bqclient = BigQueryClient(SERVICE_ACCOUNT_PATH, PROJECT_ID)
+get_bigquery_client = bqclient.get_bigquery_client
 
 # JWT functions
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -121,7 +60,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired"
         )
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
