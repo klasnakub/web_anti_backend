@@ -1,9 +1,9 @@
 from fastapi import HTTPException, status
 from model.user import User
-from repository.bigquery_user import bqUser
+from repository.bigquery_user_repo import UserRepository
 
 class UserSvc:
-    def __init__(self, user_repo: bqUser):
+    def __init__(self, user_repo: UserRepository):
         self.user_repo = user_repo
 
     def get_user_info(self, username: str):

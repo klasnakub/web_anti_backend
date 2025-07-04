@@ -11,12 +11,12 @@ from dotenv import load_dotenv
 import uuid
 
 from core.config import *
+from core.bigquery import BigQueryClient
 from core.security import verify_token
 from model.login import LoginRequest, LoginResponse
 from model.user import User
 from model.league import LeagueRequest, LeagueResponse
-from repository.bigquery import BigQueryClient
-from repository.bigquery_user import bqUser
+from repository.bigquery_user_repo import UserRepository
 from service.login_svc import LoginSvc
 from service.user_svc import UserSvc
 
@@ -38,7 +38,7 @@ app.add_middleware(
 bqclient = BigQueryClient(SERVICE_ACCOUNT_PATH, PROJECT_ID)
 get_bigquery_client = bqclient.get_bigquery_client
 # Init user repo
-user_repo = bqUser(get_bigquery_client(), PROJECT_ID, DATASET_NAME, TABLE_NAME)
+user_repo = UserRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, TABLE_NAME)
 # Init login service
 login_svc = LoginSvc(user_repo)
 # Init user service
