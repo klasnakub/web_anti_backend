@@ -2,7 +2,9 @@ from typing import Optional
 from fastapi import HTTPException, status
 from google.cloud import bigquery
 
-class UserRepository:
+from repository.user_repo_interface import IUserRepository
+
+class UserRepository(IUserRepository):
     def __init__(self, client: bigquery.Client, project_id: str, dataset_name: str, table_name: str):
         self.client = client
         self.project_id = project_id

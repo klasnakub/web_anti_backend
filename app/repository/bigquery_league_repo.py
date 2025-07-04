@@ -4,8 +4,9 @@ from uuid import uuid4
 from fastapi import HTTPException, status
 from google.cloud import bigquery
 from model.league import LeagueRequest, LeagueResponse
+from repository.league_repo_interface import ILeagueRepository
 
-class LeagueRepository():
+class LeagueRepository(ILeagueRepository):
     def __init__(self, client: bigquery.Client, project_id: str, dataset_name: str, table_name: str):
         self.client = client
         self.project_id = project_id

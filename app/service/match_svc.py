@@ -1,10 +1,10 @@
 from typing import List, Optional
 from fastapi import HTTPException, status
 from model.match import MatchRequest, MatchResponse
-from repository.bigquery_match_repo import MatchRepository
+from repository.match_repo_interface import IMatchRepository
 
 class MatchSvc():
-    def __init__(self, match_repo: MatchRepository):
+    def __init__(self, match_repo: IMatchRepository):
         self.match_repo = match_repo
 
     def add_match(self, match_data: MatchRequest) -> Optional[dict]:

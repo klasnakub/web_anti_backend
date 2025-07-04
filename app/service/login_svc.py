@@ -3,10 +3,10 @@ from datetime import timedelta
 from fastapi import HTTPException, status
 from core.security import create_access_token
 from model.login import LoginResponse
-from repository.bigquery_user_repo import UserRepository
+from repository.user_repo_interface import IUserRepository
 
 class LoginSvc:
-    def __init__(self, user_repo: UserRepository):
+    def __init__(self, user_repo: IUserRepository):
         self.user_repo = user_repo
     
     def do_login(self, username: str, password: str, session_ttl_hours: int):
