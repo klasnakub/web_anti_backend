@@ -4,17 +4,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import bigquery
 import bcrypt
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import json
 from dotenv import load_dotenv
 import uuid
 
-from config import *
+from core.config import *
+from core.security import verify_token
 from model.login import LoginRequest, LoginResponse
 from model.user import User
 from model.league import LeagueRequest, LeagueResponse
 from repository.bigquery import BigQueryClient
+from repository.bigquery_user import bqUser
+from service.login_svc import LoginSvc
+from service.user_svc import UserSvc
 
 # Load environment variables
 load_dotenv()
@@ -30,106 +34,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Security
-security = HTTPBearer()
-
 # Init bigquery client
 bqclient = BigQueryClient(SERVICE_ACCOUNT_PATH, PROJECT_ID)
 get_bigquery_client = bqclient.get_bigquery_client
-
-# JWT functions
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """Create JWT access token"""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
-    
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Verify JWT token"""
-    try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired"
-        )
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
+# Init user repo
+user_repo = bqUser(get_bigquery_client(), PROJECT_ID, DATASET_NAME, TABLE_NAME)
+# Init login service
+login_svc = LoginSvc(user_repo)
+# Init user service
+user_svc = UserSvc(user_repo)
 
 # Database functions
-def get_user_by_username(client: bigquery.Client, username: str) -> Optional[dict]:
-    """Get user by username from BigQuery"""
-    query = f"""
-    SELECT user_id, username, email, password_hash, role, is_active, created_at, last_login
-    FROM `{PROJECT_ID}.{DATASET_NAME}.{TABLE_NAME}`
-    WHERE username = @username
-    LIMIT 1
-    """
-    
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("username", "STRING", username),
-        ]
-    )
-    
-    try:
-        query_job = client.query(query, job_config=job_config)
-        results = list(query_job.result())
-        
-        if results:
-            row = results[0]
-            return {
-                "user_id": row.user_id,
-                "username": row.username,
-                "email": row.email,
-                "password_hash": row.password_hash,
-                "role": row.role,
-                "is_active": row.is_active,
-                "created_at": row.created_at,
-                "last_login": row.last_login
-            }
-        return None
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database query failed: {str(e)}"
-        )
-
-def update_last_login(client: bigquery.Client, user_id: str):
-    """Update last_login timestamp for user"""
-    query = f"""
-    UPDATE `{PROJECT_ID}.{DATASET_NAME}.{TABLE_NAME}`
-    SET last_login = CURRENT_TIMESTAMP()
-    WHERE user_id = @user_id
-    """
-    
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
-        ]
-    )
-    
-    try:
-        client.query(query, job_config=job_config)
-    except Exception as e:
-        # Log error but don't fail the login process
-        print(f"Failed to update last_login for user {user_id}: {str(e)}")
-
 def add_league_to_database(client: bigquery.Client, league_data: dict) -> dict:
     """Add league to BigQuery leagues table"""
     # Generate unique league_id
     league_id = str(uuid.uuid4())
-    current_timestamp = datetime.utcnow()
+    current_timestamp = datetime.now(timezone.utc)
     
     query = f"""
     INSERT INTO `{PROJECT_ID}.{DATASET_NAME}.leagues`
@@ -171,81 +91,14 @@ def add_league_to_database(client: bigquery.Client, league_data: dict) -> dict:
 @app.post("/login", response_model=LoginResponse)
 async def login(login_request: LoginRequest):
     """User login endpoint"""
-    client = get_bigquery_client()
-    
-    # Get user from database
-    user = get_user_by_username(client, login_request.username)
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password"
-        )
-    
-    # Check if user is active
-    if not user["is_active"]:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account is deactivated"
-        )
-    
-    # Verify password
-    try:
-        password_bytes = login_request.password.encode('utf-8')
-        stored_hash_bytes = user["password_hash"].encode('utf-8')
-        
-        if not bcrypt.checkpw(password_bytes, stored_hash_bytes):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid username or password"
-            )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password"
-        )
-    
-    # Update last login
-    update_last_login(client, user["user_id"])
-    
-    # Generate JWT token
-    access_token_expires = timedelta(hours=JWT_EXPIRATION_HOURS)
-    access_token = create_access_token(
-        data={"sub": user["user_id"], "username": user["username"], "role": user["role"]},
-        expires_delta=access_token_expires
-    )
-    
-    return LoginResponse(
-        access_token=access_token,
-        token_type="bearer",
-        user_id=user["user_id"],
-        username=user["username"],
-        email=user["email"],
-        role=user["role"]
-    )
+    ret = login_svc.do_login(login_request.username, login_request.password, JWT_EXPIRATION_HOURS)
+    return ret
 
 @app.get("/me", response_model=User)
 async def get_current_user(payload: dict = Depends(verify_token)):
     """Get current user information"""
-    client = get_bigquery_client()
-    
-    user = get_user_by_username(client, payload["username"])
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    return User(
-        user_id=user["user_id"],
-        username=user["username"],
-        email=user["email"],
-        role=user["role"],
-        is_active=user["is_active"],
-        created_at=user["created_at"],
-        last_login=user["last_login"]
-    )
+    ret = user_svc.get_user_info(payload["username"])
+    return ret
 
 @app.post("/leagues", response_model=LeagueResponse)
 async def add_league(league_request: LeagueRequest, payload: dict = Depends(verify_token)):
