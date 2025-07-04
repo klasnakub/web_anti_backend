@@ -12,6 +12,9 @@ class LeagueSvc():
     def list_all_leagues(self) -> List[LeagueResponse]:
         return self.league_repo.list()
     
+    def get_league_by_id(self, league_id: str) -> Optional[LeagueResponse]:
+        return self.league_repo.get(league_id)
+
     def delete_league_by_id(self, league_id: str) -> Optional[dict]:
         league_info=self.league_repo.get(league_id)
         if not league_info:

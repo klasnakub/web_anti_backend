@@ -6,13 +6,16 @@ from dotenv import load_dotenv
 from config import *
 from core.bigquery import BigQueryClient
 from core.security import verify_token
-from model.login import LoginRequest, LoginResponse
-from model.user import User
 from model.league import LeagueRequest, LeagueResponse
+from model.login import LoginRequest, LoginResponse
+from model.match import MatchRequest, MatchResponse
+from model.user import User
 from repository.bigquery_league_repo import LeagueRepository
+from repository.bigquery_match_repo import MatchRepository
 from repository.bigquery_user_repo import UserRepository
 from service.league_svc import LeagueSvc
 from service.login_svc import LoginSvc
+from service.match_svc import MatchSvc
 from service.user_svc import UserSvc
 
 # Load environment variables
@@ -45,6 +48,11 @@ league_repo = LeagueRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, 
 # Init league service
 league_svc = LeagueSvc(league_repo)
 
+# Init match repo
+match_repo = MatchRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, table_name="matches", league_table_name="leagues")
+# Init match service
+match_svc = MatchSvc(match_repo)
+
 # API endpoints
 @app.post("/login", response_model=LoginResponse)
 async def login(login_request: LoginRequest):
@@ -68,6 +76,11 @@ async def list_leagues(payload: dict = Depends(verify_token)):
     """List all leagues"""
     return league_svc.list_all_leagues()
 
+@app.get("/leagues/{league_id}", response_model=LeagueResponse)
+async def get_league(league_id: str, payload: dict = Depends(verify_token)):
+    """Get a league"""
+    return league_svc.get_league_by_id(league_id)
+
 @app.delete("/leagues/{league_id}")
 async def delete_league(league_id: str, payload: dict = Depends(verify_token)):
     """Delete a league by league_id"""
@@ -77,6 +90,32 @@ async def delete_league(league_id: str, payload: dict = Depends(verify_token)):
 async def update_league(league_id: str, league_request: LeagueRequest, payload: dict = Depends(verify_token)):
     """Update a league by league_id"""
     return league_svc.update_league_by_id(league_id, league_request)
+
+#@app.post("/matches", response_model=MatchResponse)
+@app.post("/matches")
+async def add_match(match_request: MatchRequest, payload: dict = Depends(verify_token)):
+    """Add a new match"""
+    return match_svc.add_match(match_request)
+
+@app.get("/matches", response_model=list[MatchResponse])
+async def list_matches(payload: dict = Depends(verify_token)):
+    """List all matches"""
+    return match_svc.list_all_matches()
+
+@app.get("/matches/{match_id}", response_model=MatchResponse)
+async def get_match(match_id: int, payload: dict = Depends(verify_token)):
+    """Get a match"""
+    return match_svc.get_match(match_id)
+
+@app.delete("/matches/{match_id}")
+async def delete_match(match_id: int, payload: dict = Depends(verify_token)):
+    """Delete a match by match_id"""
+    return match_svc.delete_match(match_id)
+
+@app.put("/matches/{match_id}")
+async def update_match(match_id: int, match_request: MatchRequest, payload: dict = Depends(verify_token)):
+    """Update a match by match_id"""
+    return match_svc.update_match(match_id, match_request)
 
 @app.get("/health")
 async def health_check():
