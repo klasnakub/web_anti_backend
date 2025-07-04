@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
-from core.config import *
+from config import *
 from core.bigquery import BigQueryClient
 from core.security import verify_token
 from model.login import LoginRequest, LoginResponse
