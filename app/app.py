@@ -10,13 +10,16 @@ from model.league import LeagueRequest, LeagueResponse
 from model.login import LoginRequest, LoginResponse
 from model.match import MatchRequest, MatchResponse
 from model.user import User
+from model.url_submission import UrlSubmissionRequest, UrlSubmissionResponse
 from repository.bigquery_league_repo import LeagueRepository
 from repository.bigquery_match_repo import MatchRepository
 from repository.bigquery_user_repo import UserRepository
+from repository.bigquery_url_submission_repo import UrlSubmissionRepository
 from service.league_svc import LeagueSvc
 from service.login_svc import LoginSvc
 from service.match_svc import MatchSvc
 from service.user_svc import UserSvc
+from service.url_submission_svc import UrlSubmissionSvc
 
 # Load environment variables
 load_dotenv()
@@ -52,6 +55,11 @@ league_svc = LeagueSvc(league_repo)
 match_repo = MatchRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, table_name="matches", league_table_name="leagues")
 # Init match service
 match_svc = MatchSvc(match_repo)
+
+# Init url submission repo
+url_submission_repo = UrlSubmissionRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, "url_submission")
+# Init url submission service
+url_submission_svc = UrlSubmissionSvc(url_submission_repo)
 
 # API endpoints
 @app.post("/login", response_model=LoginResponse)
@@ -116,6 +124,41 @@ async def delete_match(match_id: int, payload: dict = Depends(verify_token)):
 async def update_match(match_id: int, match_request: MatchRequest, payload: dict = Depends(verify_token)):
     """Update a match by match_id"""
     return match_svc.update_match(match_id, match_request)
+
+# URL Submission endpoints
+@app.post("/url_submission", response_model=UrlSubmissionResponse)
+async def add_url_submission(url_submission_request: UrlSubmissionRequest, payload: dict = Depends(verify_token)):
+    """Add a new URL submission"""
+    return url_submission_svc.add_url_submission(url_submission_request)
+
+@app.get("/url_submission", response_model=list[UrlSubmissionResponse])
+async def list_url_submissions(payload: dict = Depends(verify_token)):
+    """List all URL submissions"""
+    return url_submission_svc.list_all_url_submissions()
+
+@app.get("/url_submission/{submission_id}", response_model=UrlSubmissionResponse)
+async def get_url_submission(submission_id: str, payload: dict = Depends(verify_token)):
+    """Get a URL submission by ID"""
+    submission = url_submission_svc.get_url_submission(submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="URL submission not found")
+    return submission
+
+@app.put("/url_submission/{submission_id}", response_model=UrlSubmissionResponse)
+async def update_url_submission(submission_id: str, url_submission_request: UrlSubmissionRequest, payload: dict = Depends(verify_token)):
+    """Update a URL submission by ID"""
+    submission = url_submission_svc.update_url_submission(submission_id, url_submission_request)
+    if not submission:
+        raise HTTPException(status_code=404, detail="URL submission not found")
+    return submission
+
+@app.delete("/url_submission/{submission_id}")
+async def delete_url_submission(submission_id: str, payload: dict = Depends(verify_token)):
+    """Delete a URL submission by ID"""
+    success = url_submission_svc.delete_url_submission(submission_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="URL submission not found")
+    return {"message": "URL submission deleted successfully"}
 
 @app.get("/health")
 async def health_check():

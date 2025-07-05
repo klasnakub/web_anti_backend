@@ -58,7 +58,7 @@ logs/
 
 # Google Cloud - Service Account Keys (SECURITY: Don't commit these!)
 # *.json
-# practise-bi-88d1549575a4.json
+practise-bi-88d1549575a4.json
 
 # Testing
 .coverage
