@@ -1,9 +1,10 @@
+from typing import List, Optional
+import uuid
 from google.cloud import bigquery
 from datetime import datetime, timezone
-import uuid
-from typing import List, Optional
+from repository.url_submission_repo_interface import IUrlSubmissionRepository
 
-class UrlSubmissionRepository:
+class UrlSubmissionRepository(IUrlSubmissionRepository):
     def __init__(self, client: bigquery.Client, project_id: str, dataset_name: str, table_name: str = "url_submission"):
         self.client = client
         self.project_id = project_id
