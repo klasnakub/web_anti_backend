@@ -26,8 +26,8 @@ class UrlSubmissionRepository:
             "match_id": match_id,
             "status": status,
             "image_file_name": image_file_name,
-            "created_at": current_time,
-            "updated_at": current_time
+            "created_at": current_time.isoformat(),
+            "updated_at": current_time.isoformat()
         }
         
         errors = self.client.insert_rows_json(self.table_id, [row])

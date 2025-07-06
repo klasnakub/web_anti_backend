@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
+
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
@@ -31,8 +32,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # หรือเฉพาะ origin ที่อนุญาต
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Init bigquery client
