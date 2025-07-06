@@ -19,4 +19,6 @@ class UrlSubmissionResponse(BaseModel):
     status: Optional[str] = None
     image_file_name: Optional[str] = None
     created_at: datetime
-    updated_at: datetime 
+    updated_at: datetime
+    league_name: Optional[str] = None
+    matches_name: Optional[str] = None 

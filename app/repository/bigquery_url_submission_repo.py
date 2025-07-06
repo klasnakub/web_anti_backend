@@ -37,11 +37,24 @@ class UrlSubmissionRepository:
         return row
 
     def get_url_submission_by_id(self, submission_id: str) -> Optional[dict]:
-        """Get URL submission by submission_id"""
+        """Get URL submission by submission_id with league and match information"""
         query = f"""
-        SELECT *
-        FROM `{self.table_id}`
-        WHERE submission_id = @submission_id
+        SELECT 
+            us.submission_id,
+            us.url,
+            us.type,
+            us.league_id,
+            us.match_id,
+            us.status,
+            us.image_file_name,
+            us.created_at,
+            us.updated_at,
+            l.league_name,
+            CONCAT(m.home_team, ' VS ', m.away_team, ' (', FORMAT_DATETIME('%Y-%m-%d', m.match_date), ')') as matches_name
+        FROM `{self.table_id}` us
+        LEFT JOIN `{self.project_id}.{self.dataset_name}.leagues` l ON us.league_id = l.league_id
+        LEFT JOIN `{self.project_id}.{self.dataset_name}.matches` m ON us.match_id = CAST(m.match_id AS STRING)
+        WHERE us.submission_id = @submission_id
         """
         
         job_config = bigquery.QueryJobConfig(
@@ -64,16 +77,31 @@ class UrlSubmissionRepository:
                 "status": row.status,
                 "image_file_name": row.image_file_name,
                 "created_at": row.created_at,
-                "updated_at": row.updated_at
+                "updated_at": row.updated_at,
+                "league_name": row.league_name,
+                "matches_name": row.matches_name
             }
         return None
 
     def list_all_url_submissions(self) -> List[dict]:
-        """List all URL submissions"""
+        """List all URL submissions with league and match information"""
         query = f"""
-        SELECT *
-        FROM `{self.table_id}`
-        ORDER BY created_at DESC
+        SELECT 
+            us.submission_id,
+            us.url,
+            us.type,
+            us.league_id,
+            us.match_id,
+            us.status,
+            us.image_file_name,
+            us.created_at,
+            us.updated_at,
+            l.league_name,
+            CONCAT(m.home_team, ' VS ', m.away_team, ' (', FORMAT_DATETIME('%Y-%m-%d', m.match_date), ')') as matches_name
+        FROM `{self.table_id}` us
+        LEFT JOIN `{self.project_id}.{self.dataset_name}.leagues` l ON us.league_id = l.league_id
+        LEFT JOIN `{self.project_id}.{self.dataset_name}.matches` m ON us.match_id = CAST(m.match_id AS STRING)
+        ORDER BY us.created_at DESC
         """
         
         query_job = self.client.query(query)
@@ -90,7 +118,9 @@ class UrlSubmissionRepository:
                 "status": row.status,
                 "image_file_name": row.image_file_name,
                 "created_at": row.created_at,
-                "updated_at": row.updated_at
+                "updated_at": row.updated_at,
+                "league_name": row.league_name,
+                "matches_name": row.matches_name
             })
         
         return submissions
