@@ -236,4 +236,4 @@ class UrlSubmissionRepository:
         query_job.result()  # Wait for the query to complete
         
         # Check if any rows were affected
-        return query_job.num_dml_affected_rows > 0 
+        return query_job.num_dml_affected_rows is not None and query_job.num_dml_affected_rows > 0 

@@ -1,9 +1,9 @@
-from repository.bigquery_url_submission_repo import UrlSubmissionRepository
+from repository.url_submission_repo_interface import IUrlSubmissionRepository
 from model.url_submission import UrlSubmissionRequest
 from typing import List, Optional
 
 class UrlSubmissionSvc:
-    def __init__(self, url_submission_repo: UrlSubmissionRepository):
+    def __init__(self, url_submission_repo: IUrlSubmissionRepository):
         self.url_submission_repo = url_submission_repo
 
     def add_url_submission(self, url_submission_request: UrlSubmissionRequest) -> dict:
