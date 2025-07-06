@@ -40,36 +40,43 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# Init bigquery client
-bqclient = BigQueryClient(SERVICE_ACCOUNT_PATH, PROJECT_ID)
-get_bigquery_client = bqclient.get_bigquery_client
+# Initialize services
+try:
+    # Init bigquery client
+    bqclient = BigQueryClient(SERVICE_ACCOUNT_PATH, PROJECT_ID)
+    get_bigquery_client = bqclient.get_bigquery_client
 
-# Init user repo
-user_repo = UserRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, TABLE_NAME)
-# Init login service
-login_svc = LoginSvc(user_repo)
-# Init user service
-user_svc = UserSvc(user_repo)
+    # Init user repo
+    user_repo = UserRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, TABLE_NAME)
+    # Init login service
+    login_svc = LoginSvc(user_repo)
+    # Init user service
+    user_svc = UserSvc(user_repo)
 
-# Init league repo
-league_repo = LeagueRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, "leagues")
-# Init league service
-league_svc = LeagueSvc(league_repo)
+    # Init league repo
+    league_repo = LeagueRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, "leagues")
+    # Init league service
+    league_svc = LeagueSvc(league_repo)
 
-# Init match repo
-match_repo = MatchRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, table_name="matches", league_table_name="leagues")
-# Init match service
-match_svc = MatchSvc(match_repo)
+    # Init match repo
+    match_repo = MatchRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, table_name="matches", league_table_name="leagues")
+    # Init match service
+    match_svc = MatchSvc(match_repo)
 
-# Init url submission repo
-url_submission_repo = UrlSubmissionRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, "url_submission")
-# Init url submission service
-url_submission_svc = UrlSubmissionSvc(url_submission_repo)
+    # Init url submission repo
+    url_submission_repo = UrlSubmissionRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, "url_submission")
+    # Init url submission service
+    url_submission_svc = UrlSubmissionSvc(url_submission_repo)
 
-# Init GCS file repo
-gcs_file_repo = GCSFileRepository(bucket_name="web_anti", project_id=PROJECT_ID, service_account_path=SERVICE_ACCOUNT_PATH)
-# Init file upload service
-file_upload_svc = FileUploadSvc(gcs_file_repo)
+    # Init GCS file repo
+    gcs_file_repo = GCSFileRepository(bucket_name="web_anti", project_id=PROJECT_ID)
+    # Init file upload service
+    file_upload_svc = FileUploadSvc(gcs_file_repo)
+    
+    services_initialized = True
+except Exception as e:
+    print(f"Failed to initialize services: {str(e)}")
+    services_initialized = False
 
 # API endpoints
 @app.post("/login", response_model=LoginResponse)

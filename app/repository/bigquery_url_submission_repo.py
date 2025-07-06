@@ -18,23 +18,43 @@ class UrlSubmissionRepository:
         submission_id = str(uuid.uuid4())
         current_time = datetime.now(timezone.utc)
         
-        row = {
-            "submission_id": submission_id,
-            "url": url,
-            "type": type,
-            "league_id": league_id,
-            "match_id": match_id,
-            "status": status,
-            "image_file_name": image_file_name,
-            "created_at": current_time.isoformat(),
-            "updated_at": current_time.isoformat()
-        }
+        query = f"""
+        INSERT INTO `{self.table_id}`
+        (submission_id, url, type, league_id, match_id, status, image_file_name, created_at, updated_at)
+        VALUES (@submission_id, @url, @type, @league_id, @match_id, @status, @image_file_name, @created_at, @updated_at)
+        """
         
-        errors = self.client.insert_rows_json(self.table_id, [row])
-        if errors:
-            raise Exception(f"Error inserting row: {errors}")
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("submission_id", "STRING", submission_id),
+                bigquery.ScalarQueryParameter("url", "STRING", url),
+                bigquery.ScalarQueryParameter("type", "STRING", type),
+                bigquery.ScalarQueryParameter("league_id", "STRING", league_id),
+                bigquery.ScalarQueryParameter("match_id", "STRING", match_id),
+                bigquery.ScalarQueryParameter("status", "STRING", status),
+                bigquery.ScalarQueryParameter("image_file_name", "STRING", image_file_name),
+                bigquery.ScalarQueryParameter("created_at", "TIMESTAMP", current_time),
+                bigquery.ScalarQueryParameter("updated_at", "TIMESTAMP", current_time),
+            ]
+        )
         
-        return row
+        try:
+            query_job = self.client.query(query, job_config=job_config)
+            query_job.result()  # Wait for the query to complete
+            
+            return {
+                "submission_id": submission_id,
+                "url": url,
+                "type": type,
+                "league_id": league_id,
+                "match_id": match_id,
+                "status": status,
+                "image_file_name": image_file_name,
+                "created_at": current_time,
+                "updated_at": current_time
+            }
+        except Exception as e:
+            raise Exception(f"Error inserting row: {str(e)}")
 
     def get_url_submission_by_id(self, submission_id: str) -> Optional[dict]:
         """Get URL submission by submission_id with league and match information"""
