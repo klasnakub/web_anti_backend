@@ -8,6 +8,15 @@ class UrlSubmissionSvc:
 
     def add_url_submission(self, url_submission_request: UrlSubmissionRequest) -> dict:
         """Add a new URL submission"""
+        # Check if URL already exists for this match_id
+        if url_submission_request.match_id:
+            url_exists = self.url_submission_repo.check_url_exists_in_match(
+                url_submission_request.url, 
+                url_submission_request.match_id
+            )
+            if url_exists:
+                raise Exception("URL already exists for this match")
+        
         return self.url_submission_repo.add_url_submission(
             url=url_submission_request.url,
             type=url_submission_request.type,

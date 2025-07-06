@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 
 from datetime import datetime, timedelta, timezone
@@ -12,15 +12,18 @@ from model.login import LoginRequest, LoginResponse
 from model.match import MatchRequest, MatchResponse
 from model.user import User
 from model.url_submission import UrlSubmissionRequest, UrlSubmissionResponse
+from model.file_upload import FileUploadResponse
 from repository.bigquery_league_repo import LeagueRepository
 from repository.bigquery_match_repo import MatchRepository
 from repository.bigquery_user_repo import UserRepository
 from repository.bigquery_url_submission_repo import UrlSubmissionRepository
+from repository.gcs_file_repo import GCSFileRepository
 from service.league_svc import LeagueSvc
 from service.login_svc import LoginSvc
 from service.match_svc import MatchSvc
 from service.user_svc import UserSvc
 from service.url_submission_svc import UrlSubmissionSvc
+from service.file_upload_svc import FileUploadSvc
 
 # Load environment variables
 load_dotenv()
@@ -62,6 +65,11 @@ match_svc = MatchSvc(match_repo)
 url_submission_repo = UrlSubmissionRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, "url_submission")
 # Init url submission service
 url_submission_svc = UrlSubmissionSvc(url_submission_repo)
+
+# Init GCS file repo
+gcs_file_repo = GCSFileRepository(bucket_name="web_anti", project_id=PROJECT_ID, service_account_path=SERVICE_ACCOUNT_PATH)
+# Init file upload service
+file_upload_svc = FileUploadSvc(gcs_file_repo)
 
 # API endpoints
 @app.post("/login", response_model=LoginResponse)
@@ -131,7 +139,13 @@ async def update_match(match_id: int, match_request: MatchRequest, payload: dict
 @app.post("/url_submission", response_model=UrlSubmissionResponse)
 async def add_url_submission(url_submission_request: UrlSubmissionRequest, payload: dict = Depends(verify_token)):
     """Add a new URL submission"""
-    return url_submission_svc.add_url_submission(url_submission_request)
+    try:
+        return url_submission_svc.add_url_submission(url_submission_request)
+    except Exception as e:
+        if "URL already exists for this match" in str(e):
+            raise HTTPException(status_code=409, detail="URL already exists for this match")
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to add URL submission: {str(e)}")
 
 @app.get("/url_submission", response_model=list[UrlSubmissionResponse])
 async def list_url_submissions(payload: dict = Depends(verify_token)):
@@ -161,6 +175,37 @@ async def delete_url_submission(submission_id: str, payload: dict = Depends(veri
     if not success:
         raise HTTPException(status_code=404, detail="URL submission not found")
     return {"message": "URL submission deleted successfully"}
+
+# File Upload endpoints
+@app.post("/upload", response_model=FileUploadResponse)
+async def upload_file(file: UploadFile = File(...), payload: dict = Depends(verify_token)):
+    """Upload file to Google Cloud Storage"""
+    try:
+        # Read file content
+        file_content = await file.read()
+        
+        # Upload to GCS
+        result = file_upload_svc.upload_file(file_content, file.filename, file.content_type)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@app.delete("/upload/{file_name}")
+async def delete_file(file_name: str, payload: dict = Depends(verify_token)):
+    """Delete file from Google Cloud Storage"""
+    success = file_upload_svc.delete_file(file_name)
+    if not success:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {"message": "File deleted successfully"}
+
+@app.get("/upload/{file_name}")
+async def get_file_url(file_name: str, payload: dict = Depends(verify_token)):
+    """Get public URL of file"""
+    try:
+        url = file_upload_svc.get_file_url(file_name)
+        return {"file_name": file_name, "file_url": url}
+    except Exception as e:
+        raise HTTPException(status_code=404, detail="File not found")
 
 @app.get("/health")
 async def health_check():

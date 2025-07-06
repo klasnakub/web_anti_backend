@@ -179,6 +179,26 @@ class UrlSubmissionRepository:
         
         return self.get_url_submission_by_id(submission_id)
 
+    def check_url_exists_in_match(self, url: str, match_id: str) -> bool:
+        """Check if URL already exists for a specific match_id"""
+        query = f"""
+        SELECT COUNT(*) as count
+        FROM `{self.table_id}`
+        WHERE url = @url AND match_id = @match_id
+        """
+        
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("url", "STRING", url),
+                bigquery.ScalarQueryParameter("match_id", "STRING", match_id),
+            ]
+        )
+        
+        query_job = self.client.query(query, job_config=job_config)
+        results = list(query_job)
+        
+        return results[0].count > 0
+
     def delete_url_submission(self, submission_id: str) -> bool:
         """Delete URL submission by submission_id"""
         query = f"""
