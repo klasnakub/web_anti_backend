@@ -1,8 +1,8 @@
-from repository.gcs_file_repo import GCSFileRepository
+from repository.file_repo_interface import IGCSFileRepository
 from model.file_upload import FileUploadResponse
 
 class FileUploadSvc:
-    def __init__(self, gcs_file_repo: GCSFileRepository):
+    def __init__(self, gcs_file_repo: IGCSFileRepository):
         self.gcs_file_repo = gcs_file_repo
 
     def upload_file(self, file_content: bytes, file_name: str, content_type: str) -> FileUploadResponse:

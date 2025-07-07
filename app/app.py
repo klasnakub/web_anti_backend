@@ -192,7 +192,7 @@ async def upload_file(file: UploadFile = File(...), payload: dict = Depends(veri
         file_content = await file.read()
         
         # Upload to GCS
-        result = file_upload_svc.upload_file(file_content, file.filename, file.content_type)
+        result = file_upload_svc.upload_file(file_content, file.filename, file.content_type) # type: ignore
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")

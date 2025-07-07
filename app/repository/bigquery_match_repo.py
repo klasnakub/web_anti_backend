@@ -2,6 +2,7 @@ from typing import Optional, List
 from fastapi import HTTPException, status
 from google.cloud import bigquery
 from model.match import MatchRequest, MatchResponse
+from repository.match_repo_interface import IMatchRepository
 
 """
 CREATE TABLE user.matches (
@@ -15,7 +16,7 @@ CREATE TABLE user.matches (
 )
 """
 
-class MatchRepository:
+class MatchRepository(IMatchRepository):
     def __init__(self, client: bigquery.Client, project_id: str, dataset_name: str, table_name: str, league_table_name: str):
         self.client = client
         self.project_id = project_id

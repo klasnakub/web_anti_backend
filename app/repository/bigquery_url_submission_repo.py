@@ -1,9 +1,10 @@
+from typing import List, Optional
+import uuid
 from google.cloud import bigquery
 from datetime import datetime, timezone
-import uuid
-from typing import List, Optional
+from repository.url_submission_repo_interface import IUrlSubmissionRepository
 
-class UrlSubmissionRepository:
+class UrlSubmissionRepository(IUrlSubmissionRepository):
     def __init__(self, client: bigquery.Client, project_id: str, dataset_name: str, table_name: str = "url_submission"):
         self.client = client
         self.project_id = project_id
@@ -236,4 +237,4 @@ class UrlSubmissionRepository:
         query_job.result()  # Wait for the query to complete
         
         # Check if any rows were affected
-        return query_job.num_dml_affected_rows > 0 
+        return query_job.num_dml_affected_rows is not None and query_job.num_dml_affected_rows > 0 

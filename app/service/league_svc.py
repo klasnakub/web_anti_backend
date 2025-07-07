@@ -1,9 +1,10 @@
 from typing import List, Optional
 from fastapi import HTTPException, status
 from model.league import LeagueRequest, LeagueResponse
-from repository.bigquery_league_repo import LeagueRepository
+from repository.league_repo_interface import ILeagueRepository
+
 class LeagueSvc():
-    def __init__(self, league_repo: LeagueRepository):
+    def __init__(self, league_repo: ILeagueRepository):
         self.league_repo = league_repo
     
     def add_league_to_database(self, league_data: LeagueRequest) -> LeagueResponse:

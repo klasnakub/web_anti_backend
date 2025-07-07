@@ -1,0 +1,43 @@
+FROM registry.access.redhat.com/ubi9/ubi:9.6
+ENV container=docker
+ENV LANG=C.UTF-8
+ENV TZ=/usr/share/zoneinfo/Asia/Bangkok
+
+# Set working directory
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+# Install system dependencies
+RUN /usr/bin/yum install -y  python3.12 python3.12-pip python3.12-cryptography python3.12-cffi python3.12-idna python3.12-ply python3.12-pycparser python3.12-pyyaml python3.12-setuptools-wheel python3.12-setuptools python3.12-packaging ; \
+yum clean all ; \
+pip3.12 install "fastapi[standard]" gunicorn pyjwt
+
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip3.12 install --no-cache-dir -r requirements.txt
+
+# Copy application code
+#COPY app.py .
+COPY app /app/
+
+# Create non-root user for security
+RUN useradd appuser -m -s /bin/bash \
+    && chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Run the application
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"] 
