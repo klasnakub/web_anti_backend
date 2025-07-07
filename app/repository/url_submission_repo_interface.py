@@ -23,5 +23,10 @@ class IUrlSubmissionRepository(ABC):
         pass
 
     @abstractmethod
+    def check_url_exists_in_match(self, url: str, match_id: str) -> bool:
+        """Check if a URL already exists for a given match_id"""
+        pass
+
+    @abstractmethod
     def delete_url_submission(self, submission_id: str) -> bool:
         pass
