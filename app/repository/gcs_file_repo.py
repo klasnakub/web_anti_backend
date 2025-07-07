@@ -3,8 +3,9 @@ from datetime import datetime, timezone, timedelta
 import uuid
 import os
 from typing import Optional
+from repository.file_repo_interface import IGCSFileRepository
 
-class GCSFileRepository:
+class GCSFileRepository(IGCSFileRepository):
     def __init__(self, bucket_name: str = "web_anti", project_id: str = "practise-bi", service_account_path: Optional[str] = None):
         self.bucket_name = bucket_name
         self.project_id = project_id
