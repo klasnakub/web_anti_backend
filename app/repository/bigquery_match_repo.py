@@ -88,7 +88,6 @@ class MatchRepository(IMatchRepository):
             FROM `{self.project_id}.{self.dataset}.{self.table}` m LEFT JOIN {self.dataset}.{self.league_table} l USING (league_id) 
             WHERE match_id = @match_id
         """
-        print(query)
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("match_id", "NUMERIC", match_id),
