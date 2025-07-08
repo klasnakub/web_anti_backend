@@ -1,3 +1,5 @@
+from json import loads as json_loads
+from fastapi import Form
 from repository.url_submission_repo_interface import IUrlSubmissionRepository
 from model.url_submission import UrlSubmissionRequest
 from typing import List, Optional
@@ -6,8 +8,20 @@ class UrlSubmissionSvc:
     def __init__(self, url_submission_repo: IUrlSubmissionRepository):
         self.url_submission_repo = url_submission_repo
 
+    def url_submission_request_form_text(self, url_submission_request_txt: str) -> UrlSubmissionRequest:
+        """Get URL submission from json form"""
+        try:
+            url_submission_request = UrlSubmissionRequest(**json_loads(url_submission_request_txt))
+        except Exception as e:
+            raise Exception("Invalid URL submission request") 
+        return url_submission_request
+
     def add_url_submission(self, url_submission_request: UrlSubmissionRequest) -> dict:
         """Add a new URL submission"""
+        # Check file extension
+        if url_submission_request.image_file_name:
+            if not url_submission_request.image_file_name.lower().endswith(('.png', '.jpg', '.jpeg')):
+                raise Exception("Invalid file type. Only .png, .jpg, and .jpeg files are allowed.")
         # Check if URL already exists for this match_id
         if url_submission_request.match_id:
             url_exists = self.url_submission_repo.check_url_exists_in_match(

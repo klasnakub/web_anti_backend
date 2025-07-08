@@ -28,11 +28,14 @@ class MatchSvc():
         return self.match_repo.list_all()
     
     def get_match(self, match_id: int) -> Optional[MatchResponse]:
-        return self.match_repo.get(match_id)
+        match_info = self.match_repo.get(match_id)
+        if not match_info:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+        return match_info
 
     def delete_match(self, match_id: int) -> Optional[dict]:
         match_info = self.match_repo.get(match_id)
-        print(match_info)
+        #print(match_info)
         if not match_info:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
         deleted = self.match_repo.delete(match_id)
@@ -47,11 +50,11 @@ class MatchSvc():
                 "match_id": match_id
             }
         
-    def update_match(self, match_id: int, match_info: MatchRequest) -> Optional[dict]:
-        match_exist = self.match_repo.get(match_id)
-        if not match_exist:
+    def update_match(self, match_id: int, match_data: MatchRequest) -> Optional[dict]:
+        match_info = self.match_repo.get(match_id)
+        if not match_info:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
-        ret = self.match_repo.update(match_id, match_info)
+        ret = self.match_repo.update(match_id, match_data)
         if ret:
             return {
                 "message": f"Match updated successfully",
