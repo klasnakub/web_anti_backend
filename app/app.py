@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
-from routers import leagues_route, matches_route, user_route, url_submission_route, file_upload_route
+from routers import user_route, leagues_route, matches_route, url_submission_route, file_upload_route
 
 # Load environment variables
 load_dotenv()
@@ -23,7 +23,7 @@ app.add_middleware(
 
 services_initialized = True
 #import route
-for r in leagues_route, matches_route, user_route, url_submission_route, file_upload_route:
+for r in user_route, leagues_route, matches_route, url_submission_route, file_upload_route:
     if r.is_ready:
         app.include_router(r.router)
         print("Add router: ", str(r.router.tags))
