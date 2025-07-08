@@ -33,7 +33,11 @@ for r in user_route, leagues_route, matches_route, url_submission_route, file_up
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "timestamp": datetime.now(timezone.utc)}
+    if services_initialized:
+        health_status = "healthy"
+    else:
+        health_status = "error"
+    return {"status": health_status, "timestamp": datetime.now(timezone.utc)}
 
 if __name__ == "__main__":
     import uvicorn
