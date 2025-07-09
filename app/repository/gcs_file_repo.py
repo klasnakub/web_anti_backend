@@ -18,14 +18,14 @@ class GCSFileRepository(IGCSFileRepository):
             
         self.bucket = self.client.bucket(bucket_name)
 
-    def upload_file(self, file_content: bytes, file_name: str, content_type: str) -> dict:
+    def upload_file(self, file_content: bytes, unique_file_name: str, content_type: str, prefix: str) -> dict:
         """Upload file to Google Cloud Storage"""
         # Generate unique file name
-        file_extension = os.path.splitext(file_name)[1]
-        unique_file_name = f"{uuid.uuid4()}{file_extension}"
+        #file_extension = os.path.splitext(file_name)[1]
+        #unique_file_name = f"{uuid.uuid4()}{file_extension}"
         
         # Set blob path
-        blob_path = f"Snapshot/{unique_file_name}"
+        blob_path = f"{prefix}{unique_file_name}"
         blob = self.bucket.blob(blob_path)
         
         # Set content type
@@ -63,20 +63,20 @@ class GCSFileRepository(IGCSFileRepository):
             "bucket_path": blob_path
         }
 
-    def delete_file(self, file_name: str) -> bool:
+    def delete_file(self, file_name: str, prefix: str) -> bool:
         """Delete file from Google Cloud Storage"""
         try:
-            blob_path = f"Snapshot/{file_name}"
+            blob_path = f"{prefix}{file_name}"
             blob = self.bucket.blob(blob_path)
             blob.delete()
             return True
         except Exception:
             return False
 
-    def get_file_url(self, file_name: str) -> Optional[str]:
+    def get_file_url(self, file_name: str, prefix: str) -> Optional[str]:
         """Get URL of file"""
         try:
-            blob_path = f"Snapshot/{file_name}"
+            blob_path = f"{prefix}{file_name}"
             blob = self.bucket.blob(blob_path)
             
             # Try to generate signed URL, fallback to public URL if no private key

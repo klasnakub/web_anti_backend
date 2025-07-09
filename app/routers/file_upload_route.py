@@ -1,3 +1,4 @@
+from typing import List, Optional
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from model.file_upload import FileUploadResponse
 from common import file_upload_svc
@@ -13,16 +14,18 @@ def is_ready():
         return False
 
 # File Upload endpoints
-@router.post("/upload", response_model=FileUploadResponse)
-async def upload_file(file: UploadFile = File(...), payload: dict = Depends(verify_token)):
+@router.post("/upload/{submission_id}", response_model=FileUploadResponse)
+async def upload_file(submission_id: str, file: UploadFile = File(...), payload: dict = Depends(verify_token)):
     """Upload file to Google Cloud Storage"""
     try:
         # Read file content
         file_content = await file.read()
         
         # Upload to GCS
-        result = file_upload_svc.upload_file(file_content, file.filename, file.content_type) # type: ignore
-        return result
+        if file.filename and file.content_type:
+            result = file_upload_svc.upload_file(file_content=file_content, file_name=file.filename, content_type=file.content_type, submission_id=submission_id)
+            return result
+        raise HTTPException(status_code=403, detail=f"Upload failed: no file uploaded")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
@@ -35,11 +38,21 @@ async def delete_file(file_name: str, payload: dict = Depends(verify_token)):
     return {"message": "File deleted successfully"}
 
 @router.get("/upload/{file_name}")
-async def get_file_url(file_name: str, payload: dict = Depends(verify_token)):
+async def get_fileinfo(file_name: str, payload: dict = Depends(verify_token)) -> FileUploadResponse:
     """Get public URL of file"""
     try:
-        url = file_upload_svc.get_file_url(file_name)
-        return {"file_name": file_name, "file_url": url}
+        file_info = file_upload_svc.get_fileinfo(file_name)
     except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {e}")
+    if file_info is None:
         raise HTTPException(status_code=404, detail="File not found")
+    return file_info
 
+@router.get("/upload/list/{submission_id}")
+async def get_fileinfo_list(submission_id: str, payload: dict = Depends(verify_token))-> Optional[List[FileUploadResponse]]:
+    """Get list of files for a submission"""
+    try:
+        files = file_upload_svc.get_fileinfo_by_submission_id(submission_id)
+        return files
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{e}")
