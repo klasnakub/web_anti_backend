@@ -1,13 +1,13 @@
+from dotenv import load_dotenv
+# Load environment variables
+load_dotenv()
+
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
 from datetime import datetime, timedelta, timezone
-from dotenv import load_dotenv
 
 from routers import user_route, leagues_route, matches_route, url_submission_route, file_upload_route
-
-# Load environment variables
-load_dotenv()
 
 app = FastAPI(title="User Login API", version="1.0.0")
 

@@ -5,6 +5,7 @@ from repository.bigquery_match_repo import MatchRepository
 from repository.bigquery_user_repo import UserRepository
 from repository.bigquery_url_submission_repo import UrlSubmissionRepository
 from repository.gcs_file_repo import GCSFileRepository
+from repository.bigquery_fileinfo_repo import DbFileInfoRepository
 from service.league_svc import LeagueSvc
 from service.match_svc import MatchSvc
 from service.login_svc import LoginSvc
@@ -61,7 +62,9 @@ if get_bigquery_client:
     try:
         # Init GCS file repo
         gcs_file_repo = GCSFileRepository(bucket_name="web_anti", project_id=PROJECT_ID)
+        # Init fileinfo db
+        db_fileinfo_repo = DbFileInfoRepository(get_bigquery_client(), PROJECT_ID, DATASET_NAME, "uploadfile")
         # Init file upload service
-        file_upload_svc = FileUploadSvc(gcs_file_repo)
+        file_upload_svc = FileUploadSvc(gcs_file_repo, db_fileinfo_repo)
     except:
         file_upload_svc = None
