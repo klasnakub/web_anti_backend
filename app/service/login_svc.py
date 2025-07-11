@@ -1,6 +1,6 @@
 from bcrypt import checkpw as bcrypt_checkpw
 from datetime import timedelta
-from fastapi import HTTPException, status
+from core.custom_exception import ItemNotFoundException, UnauthorizedException
 from core.security import create_access_token
 from model.login import LoginResponse
 from repository.user_repo_interface import IUserRepository
@@ -14,17 +14,11 @@ class LoginSvc:
         user = self.user_repo.get_user_by_username(username)
         
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid username or password"
-            )
+            raise ItemNotFoundException("Invalid username or password")
         
         # Check if user is active
         if not user["is_active"]:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Account is deactivated"
-            )
+            raise UnauthorizedException("Account is deactivated")
         
         # Verify password
         try:
@@ -32,15 +26,9 @@ class LoginSvc:
             stored_hash_bytes = user["password_hash"].encode('utf-8')
             
             if not bcrypt_checkpw(password_bytes, stored_hash_bytes):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid username or password"
-                )
+                raise UnauthorizedException("Invalid username or password")
         except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid username or password"
-            )
+            raise
         
         # Update last login
         self.user_repo.update_last_login(user["user_id"])

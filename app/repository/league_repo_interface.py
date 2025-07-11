@@ -20,5 +20,5 @@ class ILeagueRepository(ABC):
         pass
 
     @abstractmethod
-    def update(self, league_id: str, leage_info: LeagueRequest) -> Optional[LeagueResponse]:
+    def update(self, league_id: str, leage_info: LeagueRequest) -> int:
         pass

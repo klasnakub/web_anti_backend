@@ -2,6 +2,7 @@ from typing import List, Optional
 import uuid
 from google.cloud import bigquery
 from datetime import datetime, timezone
+from model.url_submission import UrlSubmissionRequest, UrlSubmissionResponse
 from repository.url_submission_repo_interface import IUrlSubmissionRepository
 
 class UrlSubmissionRepository(IUrlSubmissionRepository):
@@ -12,10 +13,8 @@ class UrlSubmissionRepository(IUrlSubmissionRepository):
         self.table_name = table_name
         self.table_id = f"{project_id}.{dataset_name}.{table_name}"
 
-    def add_url_submission(self, url: str, type: Optional[str] = None, league_id: Optional[str] = None, 
-                          match_id: Optional[str] = None, status: Optional[str] = None, 
-                          image_file_name: Optional[str] = None) -> dict:
-        """Add a new URL submission to BigQuery"""
+    def add_url_submission(self, url_submission_info: UrlSubmissionRequest) -> Optional[str]:
+        """Add a new URL submission to BigQuery, return submission_id"""
         submission_id = str(uuid.uuid4())
         current_time = datetime.now(timezone.utc)
         
@@ -28,36 +27,24 @@ class UrlSubmissionRepository(IUrlSubmissionRepository):
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("submission_id", "STRING", submission_id),
-                bigquery.ScalarQueryParameter("url", "STRING", url),
-                bigquery.ScalarQueryParameter("type", "STRING", type),
-                bigquery.ScalarQueryParameter("league_id", "STRING", league_id),
-                bigquery.ScalarQueryParameter("match_id", "STRING", match_id),
-                bigquery.ScalarQueryParameter("status", "STRING", status),
-                bigquery.ScalarQueryParameter("image_file_name", "STRING", image_file_name),
+                bigquery.ScalarQueryParameter("url", "STRING", url_submission_info.url),
+                bigquery.ScalarQueryParameter("type", "STRING", url_submission_info.type),
+                bigquery.ScalarQueryParameter("league_id", "STRING", url_submission_info.league_id),
+                bigquery.ScalarQueryParameter("match_id", "NUMERIC", url_submission_info.match_id),
+                bigquery.ScalarQueryParameter("status", "STRING", url_submission_info.status),
+                bigquery.ScalarQueryParameter("image_file_name", "STRING", url_submission_info.image_file_name),
                 bigquery.ScalarQueryParameter("created_at", "TIMESTAMP", current_time),
                 bigquery.ScalarQueryParameter("updated_at", "TIMESTAMP", current_time),
             ]
         )
         
-        try:
-            query_job = self.client.query(query, job_config=job_config)
-            query_job.result()  # Wait for the query to complete
-            
-            return {
-                "submission_id": submission_id,
-                "url": url,
-                "type": type,
-                "league_id": league_id,
-                "match_id": match_id,
-                "status": status,
-                "image_file_name": image_file_name,
-                "created_at": current_time,
-                "updated_at": current_time
-            }
-        except Exception as e:
-            raise Exception(f"Error inserting row: {str(e)}")
+        query_job = self.client.query(query, job_config=job_config)
+        query_job.result()  # Wait for the query to complete
+        if query_job.num_dml_affected_rows and query_job.num_dml_affected_rows > 0:
+            return submission_id
+        return None
 
-    def get_url_submission_by_id(self, submission_id: str) -> Optional[dict]:
+    def get_url_submission_by_id(self, submission_id: str) -> Optional[UrlSubmissionResponse]:
         """Get URL submission by submission_id with league and match information"""
         query = f"""
         SELECT 
@@ -74,7 +61,7 @@ class UrlSubmissionRepository(IUrlSubmissionRepository):
             CONCAT(m.home_team, ' VS ', m.away_team, ' (', FORMAT_DATETIME('%Y-%m-%d', m.match_date), ')') as matches_name
         FROM `{self.table_id}` us
         LEFT JOIN `{self.project_id}.{self.dataset_name}.leagues` l ON us.league_id = l.league_id
-        LEFT JOIN `{self.project_id}.{self.dataset_name}.matches` m ON us.match_id = CAST(m.match_id AS STRING)
+        LEFT JOIN `{self.project_id}.{self.dataset_name}.matches` m ON us.match_id = m.match_id
         WHERE us.submission_id = @submission_id
         """
         
@@ -87,21 +74,20 @@ class UrlSubmissionRepository(IUrlSubmissionRepository):
         query_job = self.client.query(query, job_config=job_config)
         results = list(query_job)
         
-        if results:
-            row = results[0]
-            return {
-                "submission_id": row.submission_id,
-                "url": row.url,
-                "type": row.type,
-                "league_id": row.league_id,
-                "match_id": row.match_id,
-                "status": row.status,
-                "image_file_name": row.image_file_name,
-                "created_at": row.created_at,
-                "updated_at": row.updated_at,
-                "league_name": row.league_name,
-                "matches_name": row.matches_name
-            }
+        for row in results:
+            return UrlSubmissionResponse(
+                submission_id = row.submission_id,
+                url = row.url,
+                type = row.type,
+                league_id = row.league_id,
+                match_id = row.match_id,
+                status = row.status,
+                image_file_name = row.image_file_name,
+                created_at = row.created_at,
+                updated_at = row.updated_at,
+                league_name = row.league_name,
+                matches_name = row.matches_name
+            )
         return None
 
     def list_all_url_submissions(self) -> List[dict]:
@@ -121,7 +107,7 @@ class UrlSubmissionRepository(IUrlSubmissionRepository):
             CONCAT(m.home_team, ' VS ', m.away_team, ' (', FORMAT_DATETIME('%Y-%m-%d', m.match_date), ')') as matches_name
         FROM `{self.table_id}` us
         LEFT JOIN `{self.project_id}.{self.dataset_name}.leagues` l ON us.league_id = l.league_id
-        LEFT JOIN `{self.project_id}.{self.dataset_name}.matches` m ON us.match_id = CAST(m.match_id AS STRING)
+        LEFT JOIN `{self.project_id}.{self.dataset_name}.matches` m ON us.match_id = m.match_id
         ORDER BY us.created_at DESC
         """
         
@@ -147,8 +133,8 @@ class UrlSubmissionRepository(IUrlSubmissionRepository):
         return submissions
 
     def update_url_submission(self, submission_id: str, url: Optional[str] = None, type: Optional[str] = None,
-                             league_id: Optional[str] = None, match_id: Optional[str] = None,
-                             status: Optional[str] = None, image_file_name: Optional[str] = None) -> Optional[dict]:
+                             league_id: Optional[str] = None, match_id: Optional[int] = None,
+                             status: Optional[str] = None, image_file_name: Optional[str] = None) -> Optional[UrlSubmissionResponse]:
         """Update URL submission by submission_id"""
         current_time = datetime.now(timezone.utc)
         
@@ -173,7 +159,7 @@ class UrlSubmissionRepository(IUrlSubmissionRepository):
         
         if match_id is not None:
             update_fields.append("match_id = @match_id")
-            query_params.append(bigquery.ScalarQueryParameter("match_id", "STRING", match_id))
+            query_params.append(bigquery.ScalarQueryParameter("match_id", "NUMERIC", match_id))
         
         if status is not None:
             update_fields.append("status = @status")
@@ -200,7 +186,7 @@ class UrlSubmissionRepository(IUrlSubmissionRepository):
         
         return self.get_url_submission_by_id(submission_id)
 
-    def check_url_exists_in_match(self, url: str, match_id: str) -> bool:
+    def check_url_exists_in_match(self, url: str, match_id: int) -> bool:
         """Check if URL already exists for a specific match_id"""
         query = f"""
         SELECT COUNT(*) as count
@@ -211,7 +197,7 @@ class UrlSubmissionRepository(IUrlSubmissionRepository):
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("url", "STRING", url),
-                bigquery.ScalarQueryParameter("match_id", "STRING", match_id),
+                bigquery.ScalarQueryParameter("match_id", "NUMERIC", match_id),
             ]
         )
         

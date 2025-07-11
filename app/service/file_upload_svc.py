@@ -1,6 +1,7 @@
 from typing import List, Optional
 from os import path as os_path
 from uuid import uuid4 as uuid_uuid4
+from core.custom_exception import ItemNotFoundException
 from repository.file_repo_interface import IGCSFileRepository
 from repository.fileinfo_repo_interface import IDbFileInfoRepository
 from model.file_upload import FileUploadResponse, FileUploadInternal
@@ -21,8 +22,8 @@ class FileUploadSvc:
 
         try:
             result = self.gcs_file_repo.upload_file(file_content=file_content, unique_file_name=unique_file_name, content_type=content_type, prefix=self.bucket_prefix)
-        except:
-            raise Exception("Upload failed")
+        except Exception as e:
+            raise Exception("Upload failed") from e
 
         try:
             # save upload file info to db
@@ -35,8 +36,12 @@ class FileUploadSvc:
                 uploaded_at=result["uploaded_at"],
                 submission_id=submission_id,
                 bucket_path=result["bucket_path"])
-            self.db_fileinfo_repo.save_fileinfo(file_info)
-        except:
+            is_success = self.db_fileinfo_repo.save_fileinfo(file_info)
+        except Exception as e:
+            self.gcs_file_repo.delete_file(file_name=unique_file_name, prefix=self.bucket_prefix)
+            raise Exception("Save file info failed") from e
+
+        if not is_success:
             self.gcs_file_repo.delete_file(file_name=unique_file_name, prefix=self.bucket_prefix)
             raise Exception("Save file info failed")
 
@@ -46,16 +51,17 @@ class FileUploadSvc:
         """Delete file from Google Cloud Storage"""
         deleted = self.gcs_file_repo.delete_file(file_name=file_name, prefix=self.bucket_prefix)
         if deleted:
-            self.db_fileinfo_repo.delete_fileinfo(file_name)
+            deleted = self.db_fileinfo_repo.delete_fileinfo(file_name)
         return deleted
 
     def get_file_url(self, file_name: str) -> str:
         """Get public URL of file"""
 
+        # TODO: handle sign url expire
         # get file url from db
         file_info = self.db_fileinfo_repo.get_fileinfo(file_name=file_name)
         if not file_info:
-            raise Exception("File not found")
+            raise ItemNotFoundException("File not found")
         url = file_info.file_url
 
         # get file url from gsc
@@ -65,10 +71,10 @@ class FileUploadSvc:
 
         return url 
 
-    def get_fileinfo(self, file_name: str) -> Optional[FileUploadResponse]:
+    def get_fileinfo(self, file_name: str) -> FileUploadResponse:
         file_info = self.db_fileinfo_repo.get_fileinfo(file_name=file_name)
         if file_info is None:
-            return None
+            raise ItemNotFoundException("File not found")
         return FileUploadResponse(**file_info.model_dump())
 
     def get_fileinfo_by_submission_id(self, submission_id: str) -> Optional[List[FileUploadResponse]]:
