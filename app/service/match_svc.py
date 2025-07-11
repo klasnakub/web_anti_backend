@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import HTTPException, status
+from core.custom_exception import ItemAlreadyExistsException, ItemNotFoundException
 from model.match import MatchRequest, MatchResponse
 from repository.match_repo_interface import IMatchRepository
 
@@ -11,7 +12,7 @@ class MatchSvc():
         # check if match exists
         m = self.match_repo.get(match_data.match_id)
         if m:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Match already exists")
+            raise ItemAlreadyExistsException("Match already exists")
         ret = self.match_repo.add(match_data)
         if ret:
             return {
@@ -30,14 +31,14 @@ class MatchSvc():
     def get_match(self, match_id: int) -> Optional[MatchResponse]:
         match_info = self.match_repo.get(match_id)
         if not match_info:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+            raise ItemNotFoundException("Match not found")
         return match_info
 
     def delete_match(self, match_id: int) -> Optional[dict]:
         match_info = self.match_repo.get(match_id)
         #print(match_info)
         if not match_info:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+            raise ItemNotFoundException("Match not found")
         deleted = self.match_repo.delete(match_id)
         if deleted:
             return {
@@ -53,7 +54,7 @@ class MatchSvc():
     def update_match(self, match_id: int, match_data: MatchRequest) -> Optional[dict]:
         match_info = self.match_repo.get(match_id)
         if not match_info:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
+            raise ItemNotFoundException("Match not found")
         ret = self.match_repo.update(match_id, match_data)
         if ret:
             return {

@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+from core.custom_exception import ItemNotFoundException
 from model.user import User
 from repository.user_repo_interface import IUserRepository
 
@@ -11,10 +11,7 @@ class UserSvc:
         user = self.user_repo.get_user_by_username(username)
         
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
+            raise ItemNotFoundException("User not found")
         
         return User(
             user_id=user["user_id"],

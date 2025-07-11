@@ -30,24 +30,18 @@ class MatchRepository(IMatchRepository):
             SELECT m.match_id, m.home_team, m.away_team, m.league_id, m.match_date, m.status, l.league_name 
             FROM {self.dataset}.{self.table} m LEFT JOIN {self.dataset}.{self.league_table} l USING (league_id) 
             ORDER BY m.match_date DESC;"""
-        try:
-            query_job = self.client.query(query)
-            matches = []
-            for row in query_job:
-                matches.append(MatchResponse(
-                    match_id=row.match_id,
-                    home_team=row.home_team,
-                    away_team=row.away_team,
-                    match_date=row.match_date,
-                    league_id=row.league_id,
-                    league_name=row.league_name,
-                    status=row.status
-                ))
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to fetch leagues: {str(e)}"
-            )
+        query_job = self.client.query(query)
+        matches = []
+        for row in query_job:
+            matches.append(MatchResponse(
+                match_id=row.match_id,
+                home_team=row.home_team,
+                away_team=row.away_team,
+                match_date=row.match_date,
+                league_id=row.league_id,
+                league_name=row.league_name,
+                status=row.status
+            ))
         return matches
     
     def add(self, match_data: MatchRequest) -> int:
@@ -67,19 +61,13 @@ class MatchRepository(IMatchRepository):
                 bigquery.ScalarQueryParameter("status", "STRING", match_data.status),
             ]
         )
-        try:
-            query_job = self.client.query(query, job_config=job_config)
-            query_job.result() # wait for job done
-            inserted = 0
-            if query_job.dml_stats:
-                #print(query_job.dml_stats)
-                inserted = query_job.dml_stats.inserted_row_count
-            return inserted
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to add match: {str(e)}"
-            )
+        query_job = self.client.query(query, job_config=job_config)
+        query_job.result() # wait for job done
+        inserted = 0
+        if query_job.dml_stats:
+            #print(query_job.dml_stats)
+            inserted = query_job.dml_stats.inserted_row_count
+        return inserted
 
     def get(self, match_id: int) -> Optional[MatchResponse]:
         """Get match info"""
@@ -93,22 +81,16 @@ class MatchRepository(IMatchRepository):
                 bigquery.ScalarQueryParameter("match_id", "NUMERIC", match_id),
             ]
         )
-        try:
-            query_job = self.client.query(query, job_config=job_config)
-            for row in query_job:
-                return MatchResponse(
-                    match_id=row.match_id,
-                    home_team=row.home_team,
-                    away_team=row.away_team,
-                    league_id=row.league_id,
-                    league_name=row.league_name,
-                    match_date=row.match_date,
-                    status=row.status
-                )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to fetch match: {str(e)}"
+        query_job = self.client.query(query, job_config=job_config)
+        for row in query_job:
+            return MatchResponse(
+                match_id=row.match_id,
+                home_team=row.home_team,
+                away_team=row.away_team,
+                league_id=row.league_id,
+                league_name=row.league_name if row.league_name is not None else "",
+                match_date=row.match_date,
+                status=row.status
             )
         return None
 
@@ -123,18 +105,12 @@ class MatchRepository(IMatchRepository):
                 bigquery.ScalarQueryParameter("match_id", "NUMERIC", match_id),
             ]
         )
-        try:
-            query_job = self.client.query(query, job_config=job_config)
-            query_job.result() # wait for job done
-            deleted = 0
-            if query_job.dml_stats:
-                deleted = query_job.dml_stats.deleted_row_count
-            return deleted
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to delete match: {str(e)}"
-            )
+        query_job = self.client.query(query, job_config=job_config)
+        query_job.result() # wait for job done
+        deleted = 0
+        if query_job.dml_stats:
+            deleted = query_job.dml_stats.deleted_row_count
+        return deleted
 
     def update(self, match_id: int, match_info: MatchRequest) -> int:
         """Update a match"""
@@ -153,15 +129,9 @@ class MatchRepository(IMatchRepository):
                 bigquery.ScalarQueryParameter("status", "STRING", match_info.status),
             ]
         )
-        try:
-            query_job = self.client.query(query, job_config=job_config)
-            query_job.result()
-            updated = 0
-            if query_job.dml_stats:
-                updated = query_job.dml_stats.updated_row_count
-            return updated
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to update match: {str(e)}"
-            )
+        query_job = self.client.query(query, job_config=job_config)
+        query_job.result()
+        updated = 0
+        if query_job.dml_stats:
+            updated = query_job.dml_stats.updated_row_count
+        return updated
